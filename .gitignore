@@ -1,0 +1,41 @@
+# Byte-code files
+*.pyc
+__pycache__/
+
+# Virtual environment
+.venv/
+env/
+venv/
+
+# Database
+*.sqlite3
+
+# Media and static files (if served locally)
+/media/
+/static/
+
+# IDE-specific files
+.idea/
+*.iml
+.vscode/
+
+# Operating System files
+.DS_Store
+Thumbs.db
+
+# Environment variables file (CRUCIAL for secrets)
+.env
+
+# Django specific
+*.log
+local_settings.py
+
+# Test coverage
+.coverage
+.coverage.*
+htmlcov/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
