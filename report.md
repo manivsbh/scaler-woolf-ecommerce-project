@@ -129,7 +129,7 @@ Functional requirements define what the system *must do*. For this e-commerce ba
     *   **User Registration:** The system must allow new users to create an account by providing a unique email address, username, and password. This process should include basic validation (e.g., password strength, unique email).
     *   **User Login:** Users must be able to securely authenticate using their registered credentials. The system should issue a JSON Web Token (JWT) upon successful login for subsequent authenticated requests, ensuring stateless authentication.
     *   **Profile Management:** Authenticated users must have the ability to view their personal profile details (e.g., email, first name, last name) and modify them. Changes should be validated and persisted securely.
-    *   **Password Reset:** The system must provide a secure mechanism for users to reset their forgotten passwords. This typically involves sending a unique, time-limited reset link to the user's registered email address.
+    *   **Password Reset:** The system must provide a secure mechanism for users to reset their forgotten passwords. This typically involves sending a unique, time-limited reset link to the user's registered email address via **SMTP (e.g., Gmail)**.
 *   **Product Catalog:**
     *   **Product Browsing:** Users must be able to browse products organized by different categories. This includes listing all available products and filtering them by category.
     *   **Product Details:** Each product must have a dedicated page or endpoint displaying comprehensive details, including product images (conceptual), descriptions, specifications, pricing, and associated category.
@@ -137,15 +137,15 @@ Functional requirements define what the system *must do*. For this e-commerce ba
 *   **Cart & Checkout:**
     *   **Add to Cart:** Users must be able to add products to their shopping cart, specifying the desired quantity. If a product already exists in the cart, its quantity should be updated.
     *   **Cart Review:** Users should be able to view the contents of their shopping cart, including a list of selected items, their quantities, individual prices, and the calculated total price.
-    *   **Checkout:** The system must provide a seamless process to finalize a purchase. This involves converting the contents of the user's cart into a formal order, capturing the total amount, and clearing the cart.
+    *   **Checkout:** The system must provide a seamless process to finalize a purchase. This involves converting the contents of the user's cart into a formal order, capturing the total amount, and clearing the cart. An **SMS notification via Vonage** will be sent upon successful order creation.
 *   **Order Management:**
     *   **Order Confirmation:** After a successful purchase, users should receive an order confirmation. The system should record all details of the order, including items purchased, quantities, prices, and the total amount.
     *   **Order History:** Authenticated users must be able to view a list of all their past orders, providing a historical record of their purchases.
     *   **Order Tracking:** While a full tracking system is complex, the system should provide a basic status for orders (e.g., `is_paid` flag), which can be extended for more granular tracking (e.g., processing, shipped, delivered).
 *   **Payment:**
-    *   **Multiple Payment Options:** The system should conceptually support various payment methods. For this project, payment processing is simulated by marking an order as paid.
-    *   **Secure Transactions:** The system must ensure that payment transactions are securely recorded, even if the actual payment gateway integration is simulated.
-    *   **Payment Receipt:** Upon successful payment (simulation), the system should generate and record a payment receipt or transaction log.
+    *   **Multiple Payment Options:** The system integrates with **Stripe** to handle payment processing, supporting various payment methods (credit/debit cards).
+    *   **Secure Transactions:** **Stripe** handles the secure collection and processing of payment information, ensuring user trust and PCI compliance.
+    *   **Payment Receipt:** Upon successful payment, a payment record is generated and stored, and a **Kafka event** is published.
 
 ### Non-Functional Requirements
 
@@ -224,15 +224,15 @@ The following table outlines the key features implemented in the backend, mappin
 | User Management   | User Registration       | Allows new users to create an account.                                   | `POST /api/users/register/`                          |
 |                   | User Login              | Authenticates users and provides JWT tokens.                             | `POST /api/users/token/`                             |
 |                   | Profile Management      | Users can view and update their personal information.                    | `GET/PUT /api/users/profile/`                        |
-|                   | Password Reset          | Enables users to reset forgotten passwords via email.                    | `POST /api/users/password_reset/`                    |
+|                   | Password Reset          | Enables users to reset forgotten passwords via email (SMTP).             | `POST /api/users/password_reset/`                    |
 | Product Catalog   | Category Management     | CRUD operations for product categories.                                  | `GET/POST /api/categories/`                          |
 |                   | Product Management      | CRUD operations for products (name, description, price, category).       | `GET/POST /api/products/`                            |
 |                   | Product Search          | Search products by keywords using Elasticsearch.                         | `GET /api/products/search/?q=keyword`                |
 | Cart & Checkout   | Add to Cart             | Adds a specified product and quantity to the user's cart.                | `POST /api/cart/add/`                                |
 |                   | View Cart               | Displays all items currently in the user's cart.                         | `GET /api/cart/`                                     |
-|                   | Create Order            | Converts cart items into a new order.                                    | `POST /api/orders/create/`                           |
+|                   | Create Order            | Converts cart items into a new order (triggers Vonage SMS).              | `POST /api/orders/create/`                           |
 | Order Management  | Order History           | Lists all past orders for the authenticated user.                        | `GET /api/orders/`                                   |
-| Payment           | Process Payment         | Simulates payment and marks an order as paid.                            | `POST /api/payments/process/`                        |
+| Payment           | Process Payment         | Integrates with Stripe to process payments.                              | `POST /api/payments/process/`                        |
 
 ## Class Diagrams
 
@@ -627,7 +627,7 @@ This section details the role of each AWS service in the proposed deployment arc
     *   **Role in Project:** Provides a managed environment for deploying and running the Django REST Framework application. It automatically provisions and manages the underlying infrastructure, including EC2 instances and an Application Load Balancer, simplifying the deployment process and ensuring high availability and scalability.
 
 *   **Application Load Balancer (ALB):**
-    *   **Function:** Distributes incoming application traffic across multiple targets, such as EC2 instances, in multiple Availability Zones. It operates at the application layer (Layer 7) and supports content-based routing.
+    *   **Function:** Distributes incoming application traffic across multiple targets, suchs as EC2 instances, in multiple Availability Zones. It operates at the application layer (Layer 7) and supports content-based routing.
     *   **Role in Project:** Managed by Elastic Beanstalk, the ALB receives traffic from API Gateway and efficiently distributes it among the EC2 instances running the Django application. This ensures high availability and fault tolerance by directing traffic away from unhealthy instances and balancing the load.
 
 *   **Amazon EC2 Instances (Elastic Compute Cloud):**
@@ -767,6 +767,30 @@ Show clear lines indicating data flow and communication between these components
     *   **Stream Processing:** Building real-time analytics pipelines (e.g., fraud detection, personalized recommendations).
     *   **Data Integration:** Connecting various data sources and sinks in an enterprise.
 *   **Example of real-life applications:** LinkedIn (original creator, for activity streams and operational metrics), Netflix (for real-time monitoring and recommendations), Uber (for real-time analytics), and many financial institutions for transaction processing.
+
+### `python-dotenv`
+
+*   **Detail and describe:** `python-dotenv` is a Python library that reads key-value pairs from a `.env` file and sets them as environment variables. This is particularly useful for managing configuration variables, especially sensitive ones like API keys and database credentials, during local development without hardcoding them directly into the codebase.
+*   **How they can be used in real life:** It simplifies local development setup by allowing developers to define environment-specific variables in a simple text file, which is then loaded automatically by the application. This keeps sensitive information out of version control and makes it easy to switch between different environments (development, testing, production) by simply changing the `.env` file.
+*   **Example of real-life applications:** Any Python project that needs to manage environment variables for local development, including web applications (Django, Flask), data science projects, and command-line tools.
+
+### SMTP (Email)
+
+*   **Detail and describe:** SMTP (Simple Mail Transfer Protocol) is the standard protocol for sending email across the Internet. Django's built-in `EmailBackend` can be configured to use any SMTP server (like Gmail's SMTP). This allows the application to send emails directly through an existing email service.
+*   **How they can be used in real life:** SMTP is fundamental for all email communication. In applications, it's used for:
+    *   **Transactional Emails:** Password resets, account verifications, order confirmations, shipping notifications.
+    *   **System Alerts:** Notifying administrators of critical events.
+    *   **Basic Notifications:** Sending simple updates to users.
+*   **Example of real-life applications:** Almost every web application that sends emails (e.g., social media platforms, online stores, SaaS applications) uses SMTP either directly or through a service provider that uses SMTP.
+
+### Vonage (SMS)
+
+*   **Detail and describe:** Vonage (formerly Nexmo) is a cloud communications platform that provides APIs for programmatically sending and receiving SMS messages, voice calls, and other communication functions. It abstracts away the complexities of telecommunications infrastructure, allowing developers to integrate communication capabilities into their applications with ease.
+*   **How they can be used in real life:** Vonage is used for a wide range of communication features:
+    *   **SMS Notifications:** Sending automated text messages for order updates, delivery notifications, appointment reminders, and two-factor authentication (2FA).
+    *   **Marketing Campaigns:** Sending promotional SMS messages.
+    *   **Customer Service:** Enabling SMS-based customer support.
+*   **Example of real-life applications:** E-commerce platforms for order updates, delivery services for tracking notifications, customer service systems, and authentication services.
 
 ## Conclusion
 

@@ -49,6 +49,7 @@ Before you begin, ensure you have the following installed on your machine:
 *   **Kafka**
 *   **Zookeeper** (Kafka's dependency)
 *   **`python-dotenv`**: For managing environment variables locally.
+*   **`vonage`**: For sending SMS messages.
 
 ## Setup Instructions
 
@@ -63,7 +64,7 @@ Before you begin, ensure you have the following installed on your machine:
     ```bash
     pip install -r requirements.txt
     # If requirements.txt is not present, install manually:
-    # pip install django djangorestframework djangorestframework-simplejwt django-redis django-elasticsearch-dsl elasticsearch kafka-python Faker django-filter python-dotenv stripe
+    # pip install django djangorestframework djangorestframework-simplejwt django-redis django-elasticsearch-dsl elasticsearch kafka-python Faker django-filter python-dotenv stripe vonage
     ```
 
 3.  **Configure Environment Variables (`.env` file):**
@@ -77,8 +78,28 @@ Before you begin, ensure you have the following installed on your machine:
     ES_USERNAME="your_elasticsearch_username"
     ES_PASSWORD="your_elasticsearch_password"
 
+    # MySQL Database Credentials
+    MYSQL_DATABASE="ecommerce_db"
+    MYSQL_USER="root"
+    MYSQL_PASSWORD="your_mysql_password"
+    MYSQL_HOST="localhost"
+    MYSQL_PORT="3306"
+
+    # SMTP Email Credentials (e.g., for Gmail)
+    EMAIL_HOST="smtp.gmail.com"
+    EMAIL_PORT="587"
+    EMAIL_USE_TLS="True"
+    EMAIL_HOST_USER="your_gmail_address@gmail.com"
+    EMAIL_HOST_PASSWORD="your_gmail_app_password"
+    DEFAULT_FROM_EMAIL="your_gmail_address@gmail.com"
+
+    # Vonage SMS Credentials
+    VONAGE_API_KEY="YOUR_VONAGE_API_KEY"
+    VONAGE_API_SECRET="YOUR_VONAGE_API_SECRET"
+    VONAGE_PHONE_NUMBER="YOUR_VONAGE_PHONE_NUMBER" # Your Vonage virtual number
+
     # Other sensitive settings can go here
-    # SECRET_KEY="your_django_secret_key"
+    # DJANGO_SECRET_KEY="your_django_secret_key"
     ```
 
 4.  **Apply database migrations:**
@@ -139,8 +160,11 @@ You can use `curl` or a tool like Postman/Insomnia to test the API endpoints. Re
     ```bash
     curl -X GET -H "Authorization: Bearer YOUR_ACCESS_TOKEN" http://127.0.0.1:8000/api/users/profile/
     ```
-*   **Password Reset (Browser-based):**
-    Navigate to `http://127.0.0.1:8000/api/users/password_reset/` in your browser. Enter the user's email. The reset link will be printed to your Django server's console.
+*   **Password Reset (API-only, Email via SMTP):**
+    Trigger a password reset email by sending a POST request. The email will be sent via your configured SMTP server (e.g., Gmail) to the provided address.
+    ```bash
+    curl -X POST -H "Content-Type: application/json" -d '{"email": "test@example.com"}' http://127.0.0.1:8000/api/users/password_reset/
+    ```
 
 ### Product Catalog
 
@@ -171,10 +195,11 @@ You can use `curl` or a tool like Postman/Insomnia to test the API endpoints. Re
     ```bash
     curl -X GET -H "Authorization: Bearer YOUR_ACCESS_TOKEN" http://127.0.0.1:8000/api/cart/
     ```
-*   **Create Order from Cart (Requires Authentication):**
+*   **Create Order from Cart (Requires Authentication, Triggers SMS):**
     ```bash
     curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer YOUR_ACCESS_TOKEN" http://127.0.0.1:8000/api/orders/create/
     ```
+    (An SMS will be sent via Vonage to the configured phone number upon successful order creation.)
 
 ### Order Management
 
