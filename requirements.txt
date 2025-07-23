@@ -4,4 +4,9 @@ djangorestframework-simplejwt
 django-elasticsearch-dsl
 django-redis
 gunicorn
-kafka-python
+kafka-python~=2.2.15
+Faker~=37.4.2
+vonage~=4.4.3
+stripe~=12.3.0
+django-filter~=25.1
+python-dotenv~=1.0.1

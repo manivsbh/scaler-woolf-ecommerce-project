@@ -155,7 +155,16 @@ AUTH_USER_MODEL = 'users.User'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = os.environ.get('EMAIL_HOST')
+EMAIL_PORT = os.environ.get('EMAIL_PORT', 587)
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() == 'true'
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'webmaster@localhost')
+
+# Removed SendGrid specific settings
+# SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY')
 
 CACHES = {
     "default": {
@@ -172,4 +181,12 @@ KAFKA_BROKER_URLS = ['localhost:9092']
 # Stripe API Keys
 STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY', '')
 STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '')
+
+# Twilio SMS Settings
+TWILIO_PHONE_NUMBER = os.environ.get('TWILIO_PHONE_NUMBER', '')
+
+# Vonage SMS Settings
+VONAGE_API_KEY = os.environ.get('VONAGE_API_KEY', '')
+VONAGE_API_SECRET = os.environ.get('VONAGE_API_SECRET', '')
+VONAGE_PHONE_NUMBER = os.environ.get('VONAGE_PHONE_NUMBER', '')
 

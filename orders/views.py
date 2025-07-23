@@ -7,6 +7,7 @@ from .models import Order, OrderItem, Payment
 from .serializers import OrderSerializer, PaymentSerializer
 from carts.models import Cart, CartItem
 from common.kafka_producer import send_kafka_message
+from common.sms_utils import send_sms # Add this import
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
@@ -41,6 +42,13 @@ class OrderCreateView(generics.CreateAPIView):
             'total_price': str(order.total_price),
             'items': [{'product_id': item.product.id, 'quantity': item.quantity} for item in order.items.all()]
         })
+
+        # Send SMS confirmation
+        # Assuming user has a phone_number field or it's passed in request
+        # For testing, you might hardcode a test number or retrieve from user profile
+        user_phone_number = "+918107588977" # Replace with actual user phone number or test number
+        sms_message = f"Your order {order.id} for ${order.total_price} has been placed successfully!"
+        send_sms(to_phone_number=user_phone_number, message_body=sms_message)
 
         serializer = self.get_serializer(order)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
