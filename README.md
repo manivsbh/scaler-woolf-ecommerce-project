@@ -33,8 +33,9 @@ This is a backend e-commerce application built with Django REST Framework, integ
 This application demonstrates the integration of the following HLD components:
 
 *   **Elasticsearch:** Used for fast and relevant product search.
-*   **Redis:** Implemented for caching user cart data to improve performance.
+*   **Redis:** Implemented for caching user cart data to improve performance, and as a message broker for Celery.
 *   **Kafka:** Utilized as a message broker for asynchronous communication, publishing events for user registration, cart updates, order creation, and payment processing.
+*   **Celery:** Used for asynchronous task processing (e.g., sending emails and SMS).
 
 ## Prerequisites
 
@@ -49,6 +50,7 @@ Before you begin, ensure you have the following installed on your machine:
 *   **Kafka**
 *   **Zookeeper** (Kafka's dependency)
 *   **`python-dotenv`**: For managing environment variables locally.
+*   **`celery`**: For asynchronous task processing.
 *   **`vonage`**: For sending SMS messages.
 
 ## Setup Instructions
@@ -64,7 +66,7 @@ Before you begin, ensure you have the following installed on your machine:
     ```bash
     pip install -r requirements.txt
     # If requirements.txt is not present, install manually:
-    # pip install django djangorestframework djangorestframework-simplejwt django-redis django-elasticsearch-dsl elasticsearch kafka-python Faker django-filter python-dotenv stripe vonage
+    # pip install django djangorestframework djangorestframework-simplejwt django-redis django-elasticsearch-dsl elasticsearch kafka-python Faker django-filter python-dotenv stripe vonage celery
     ```
 
 3.  **Configure Environment Variables (`.env` file):**
@@ -97,6 +99,10 @@ Before you begin, ensure you have the following installed on your machine:
     VONAGE_API_KEY="YOUR_VONAGE_API_KEY"
     VONAGE_API_SECRET="YOUR_VONAGE_API_SECRET"
     VONAGE_PHONE_NUMBER="YOUR_VONAGE_PHONE_NUMBER" # Your Vonage virtual number
+
+    # Celery Broker URL (using Redis)
+    CELERY_BROKER_URL="redis://localhost:6379/0"
+    CELERY_RESULT_BACKEND="redis://localhost:6379/0"
 
     # Other sensitive settings can go here
     # DJANGO_SECRET_KEY="your_django_secret_key"
@@ -141,6 +147,16 @@ python manage.py runserver
 
 The server will typically run on `http://127.0.0.1:8000/`.
 
+## Running Celery Workers
+
+In a separate terminal window, navigate to the `ecommerce` directory and start the Celery worker:
+
+```bash
+celery -A ecommerce worker -l info
+```
+
+This worker will process asynchronous tasks like sending emails and SMS messages.
+
 ## API Endpoints & Testing
 
 You can use `curl` or a tool like Postman/Insomnia to test the API endpoints. Remember to replace `YOUR_ACCESS_TOKEN` with a valid JWT obtained from the login endpoint.
@@ -160,8 +176,8 @@ You can use `curl` or a tool like Postman/Insomnia to test the API endpoints. Re
     ```bash
     curl -X GET -H "Authorization: Bearer YOUR_ACCESS_TOKEN" http://127.0.0.1:8000/api/users/profile/
     ```
-*   **Password Reset (API-only, Email via SMTP):**
-    Trigger a password reset email by sending a POST request. The email will be sent via your configured SMTP server (e.g., Gmail) to the provided address.
+*   **Password Reset (API-only, Email via SMTP - Asynchronous):**
+    Trigger a password reset email by sending a POST request. The email sending will be handled asynchronously by Celery.
     ```bash
     curl -X POST -H "Content-Type: application/json" -d '{"email": "test@example.com"}' http://127.0.0.1:8000/api/users/password_reset/
     ```
@@ -195,11 +211,11 @@ You can use `curl` or a tool like Postman/Insomnia to test the API endpoints. Re
     ```bash
     curl -X GET -H "Authorization: Bearer YOUR_ACCESS_TOKEN" http://127.0.0.1:8000/api/cart/
     ```
-*   **Create Order from Cart (Requires Authentication, Triggers SMS):**
+*   **Create Order from Cart (Requires Authentication, Triggers Asynchronous SMS):**
     ```bash
     curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer YOUR_ACCESS_TOKEN" http://127.0.0.1:8000/api/orders/create/
     ```
-    (An SMS will be sent via Vonage to the configured phone number upon successful order creation.)
+    (An SMS will be sent via Vonage asynchronously by Celery to the configured phone number upon successful order creation.)
 
 ### Order Management
 

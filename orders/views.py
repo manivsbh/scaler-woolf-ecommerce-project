@@ -48,7 +48,7 @@ class OrderCreateView(generics.CreateAPIView):
         # For testing, you might hardcode a test number or retrieve from user profile
         user_phone_number = "+918107588977" # Replace with actual user phone number or test number
         sms_message = f"Your order {order.id} for ${order.total_price} has been placed successfully!"
-        send_sms(to_phone_number=user_phone_number, message_body=sms_message)
+        send_sms.delay(to_phone_number=user_phone_number, message_body=sms_message)
 
         serializer = self.get_serializer(order)
         return Response(serializer.data, status=status.HTTP_201_CREATED)

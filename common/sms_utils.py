@@ -1,6 +1,8 @@
 import vonage # Import Vonage
 from django.conf import settings
+from ecommerce.celery import app # Import Celery app
 
+@app.task
 def send_sms(to_phone_number, message_body):
     api_key = settings.VONAGE_API_KEY
     api_secret = settings.VONAGE_API_SECRET

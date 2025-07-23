@@ -74,6 +74,7 @@ I confirm that this project report, submitted to fulfill the requirements for th
 | 4.8       | Payment Table Schema |          |
 | 5.1       | API Request Payload for Add to Cart |          |
 | 5.2       | Benchmarking: Cart Retrieval (Before/After Caching) |          |
+| 5.3       | Benchmarking: Notification Sending (Before/After Asynchronous Processing) |          |
 
 ---
 
@@ -87,6 +88,7 @@ I confirm that this project report, submitted to fulfill the requirements for th
 | 3.1        | Core Class Diagram |          |
 | 4.1        | Entity-Relationship Diagram (ERD) |          |
 | 5.1        | Request Flow for Add to Cart Feature |          |
+| 5.2        | Asynchronous Notification Flow |          |
 | 6.1        | High-Level AWS Deployment Architecture |          |
 | 7.1        | E-commerce Application Technology Stack |          |
 
@@ -96,7 +98,7 @@ I confirm that this project report, submitted to fulfill the requirements for th
 
 ## Abstract
 
-This project details the development of a robust backend for an e-commerce website using Django REST Framework. The primary objective was to create a scalable and modular system capable of handling core e-commerce functionalities, including user management, product catalog, shopping cart, order processing, and payment simulation. The implementation adheres to a microservices-oriented High-Level Design (HLD) by integrating external, specialized services. Key HLD components such as Elasticsearch are utilized for efficient product search, Redis for high-performance cart caching, and Kafka for asynchronous, event-driven communication between logical modules. This report outlines the architectural choices, implementation details, and testing methodologies, demonstrating how modern backend technologies can be leveraged to build a responsive and resilient e-commerce platform. The project serves as a practical application of distributed system concepts, showcasing how specialized tools enhance performance, scalability, and maintainability in real-world online retail scenarios.
+This project details the development of a robust backend for an e-commerce website using Django REST Framework. The primary objective was to create a scalable and modular system capable of handling core e-commerce functionalities, including user management, product catalog, shopping cart, order processing, and payment simulation. The implementation adheres to a microservices-oriented High-Level Design (HLD) by integrating external, specialized services. Key HLD components suchs as Elasticsearch are utilized for efficient product search, Redis for high-performance cart caching, and Kafka for asynchronous, event-driven communication between logical modules. Furthermore, **Celery is integrated for asynchronous task processing**, offloading time-consuming operations like email and SMS notifications from the main request-response cycle. This report outlines the architectural choices, implementation details, and testing methodologies, demonstrating how modern backend technologies can be leveraged to build a responsive and resilient e-commerce platform. The project serves as a practical application of distributed system concepts, showcasing how specialized tools enhance performance, scalability, and maintainability in real-world online retail scenarios.
 
 ## Project Description
 
@@ -109,7 +111,7 @@ The project addresses several critical challenges inherent in modern e-commerce:
 *   **Data Consistency:** Maintaining accurate data across various components, particularly in a distributed environment.
 *   **Security:** Protecting sensitive user and transaction data.
 
-By integrating specialized tools like Elasticsearch for search, Redis for caching, and Kafka for inter-service communication, the project demonstrates a practical approach to building a high-performance, event-driven e-commerce backend. This report will delve into the design decisions, implementation details, and the benefits derived from these integrations.
+By integrating specialized tools like Elasticsearch for search, Redis for caching, Kafka for inter-service communication, and **Celery for asynchronous task processing**, the project demonstrates a practical approach to building a high-performance, event-driven e-commerce backend. This report will delve into the design decisions, implementation details, and the benefits derived from these integrations.
 
 **Figure 1.1: Project Development Process**
 *(Figure captions go below figures.)*
@@ -129,7 +131,7 @@ Functional requirements define what the system *must do*. For this e-commerce ba
     *   **User Registration:** The system must allow new users to create an account by providing a unique email address, username, and password. This process should include basic validation (e.g., password strength, unique email).
     *   **User Login:** Users must be able to securely authenticate using their registered credentials. The system should issue a JSON Web Token (JWT) upon successful login for subsequent authenticated requests, ensuring stateless authentication.
     *   **Profile Management:** Authenticated users must have the ability to view their personal profile details (e.g., email, first name, last name) and modify them. Changes should be validated and persisted securely.
-    *   **Password Reset:** The system must provide a secure mechanism for users to reset their forgotten passwords. This typically involves sending a unique, time-limited reset link to the user's registered email address via **SMTP (e.g., Gmail)**.
+    *   **Password Reset:** The system must provide a secure mechanism for users to reset their forgotten passwords. This typically involves sending a unique, time-limited reset link to the user's registered email address via **SMTP (e.g., Gmail), handled asynchronously**.
 *   **Product Catalog:**
     *   **Product Browsing:** Users must be able to browse products organized by different categories. This includes listing all available products and filtering them by category.
     *   **Product Details:** Each product must have a dedicated page or endpoint displaying comprehensive details, including product images (conceptual), descriptions, specifications, pricing, and associated category.
@@ -137,7 +139,7 @@ Functional requirements define what the system *must do*. For this e-commerce ba
 *   **Cart & Checkout:**
     *   **Add to Cart:** Users must be able to add products to their shopping cart, specifying the desired quantity. If a product already exists in the cart, its quantity should be updated.
     *   **Cart Review:** Users should be able to view the contents of their shopping cart, including a list of selected items, their quantities, individual prices, and the calculated total price.
-    *   **Checkout:** The system must provide a seamless process to finalize a purchase. This involves converting the contents of the user's cart into a formal order, capturing the total amount, and clearing the cart. An **SMS notification via Vonage** will be sent upon successful order creation.
+    *   **Checkout:** The system must provide a seamless process to finalize a purchase. This involves converting the contents of the user's cart into a formal order, capturing the total amount, and clearing the cart. An **SMS notification via Vonage, handled asynchronously**, will be sent upon successful order creation.
 *   **Order Management:**
     *   **Order Confirmation:** After a successful purchase, users should receive an order confirmation. The system should record all details of the order, including items purchased, quantities, prices, and the total amount.
     *   **Order History:** Authenticated users must be able to view a list of all their past orders, providing a historical record of their purchases.
@@ -152,17 +154,17 @@ Functional requirements define what the system *must do*. For this e-commerce ba
 Non-functional requirements define *how* the system performs. They are crucial for the overall quality and user experience.
 
 *   **Performance:**
-    *   **Response Time:** API endpoints, especially for critical operations like product search and cart retrieval, should exhibit low latency (e.g., sub-200ms for common operations).
-    *   **Throughput:** The system should be capable of handling a high volume of concurrent requests without significant degradation in performance.
+    *   **Response Time:** API endpoints, especially for critical operations like product search and cart retrieval, should exhibit low latency (e.g., sub-200ms for common operations). **Asynchronous task processing significantly improves response times for operations involving external communication (email, SMS).**
+    *   **Throughput:** The system should be capable of handling a high volume of concurrent requests without significant degradation in performance. **Offloading tasks to Celery workers frees up web server resources, increasing overall throughput.**
 *   **Scalability:**
-    *   **Horizontal Scalability:** The architecture should allow for easy scaling by adding more instances of application servers, databases, and other components to handle increased load.
+    *   **Horizontal Scalability:** The architecture should allow for easy scaling by adding more instances of application servers, databases, and other components to handle increased load. **Celery workers can be scaled independently to handle increased background task load.**
     *   **Data Volume:** The system must efficiently manage and query large datasets of products, users, and orders.
 *   **Security:**
     *   **Authentication & Authorization:** Implement robust JWT-based authentication and role-based authorization to protect endpoints and data.
     *   **Data Protection:** Ensure sensitive user data (e.g., passwords) is stored securely (hashed).
     *   **Vulnerability Protection:** Guard against common web vulnerabilities (e.g., SQL injection, XSS, CSRF).
 *   **Reliability & Availability:**
-    *   **Fault Tolerance:** The system should be resilient to failures of individual components, with mechanisms for graceful degradation and recovery.
+    *   **Fault Tolerance:** The system should be resilient to failures of individual components, with mechanisms for graceful degradation and recovery. **Celery provides retry mechanisms for failed tasks, enhancing reliability.**
     *   **High Availability:** Critical services should be designed for continuous operation with minimal downtime.
 *   **Maintainability:**
     *   **Modularity:** The codebase should be well-organized into distinct modules (Django apps) with clear responsibilities, facilitating easier understanding, debugging, and future enhancements.
@@ -224,13 +226,13 @@ The following table outlines the key features implemented in the backend, mappin
 | User Management   | User Registration       | Allows new users to create an account.                                   | `POST /api/users/register/`                          |
 |                   | User Login              | Authenticates users and provides JWT tokens.                             | `POST /api/users/token/`                             |
 |                   | Profile Management      | Users can view and update their personal information.                    | `GET/PUT /api/users/profile/`                        |
-|                   | Password Reset          | Enables users to reset forgotten passwords via email (SMTP).             | `POST /api/users/password_reset/`                    |
+|                   | Password Reset          | Enables users to reset forgotten passwords via email (SMTP, asynchronous). | `POST /api/users/password_reset/`                    |
 | Product Catalog   | Category Management     | CRUD operations for product categories.                                  | `GET/POST /api/categories/`                          |
 |                   | Product Management      | CRUD operations for products (name, description, price, category).       | `GET/POST /api/products/`                            |
 |                   | Product Search          | Search products by keywords using Elasticsearch.                         | `GET /api/products/search/?q=keyword`                |
 | Cart & Checkout   | Add to Cart             | Adds a specified product and quantity to the user's cart.                | `POST /api/cart/add/`                                |
 |                   | View Cart               | Displays all items currently in the user's cart.                         | `GET /api/cart/`                                     |
-|                   | Create Order            | Converts cart items into a new order (triggers Vonage SMS).              | `POST /api/orders/create/`                           |
+|                   | Create Order            | Converts cart items into a new order (triggers Vonage SMS, asynchronous). | `POST /api/orders/create/`                           |
 | Order Management  | Order History           | Lists all past orders for the authenticated user.                        | `GET /api/orders/`                                   |
 | Payment           | Process Payment         | Integrates with Stripe to process payments.                              | `POST /api/payments/process/`                        |
 
@@ -792,6 +794,16 @@ Show clear lines indicating data flow and communication between these components
     *   **Customer Service:** Enabling SMS-based customer support.
 *   **Example of real-life applications:** E-commerce platforms for order updates, delivery services for tracking notifications, customer service systems, and authentication services.
 
+### Celery (Asynchronous Task Processing)
+
+*   **Detail and describe:** Celery is an open-source, distributed task queue for Python. It allows web applications to quickly respond to user requests by delegating long-running operations (like sending emails, processing images, or generating reports) to background worker processes. It uses a message broker (like Redis or RabbitMQ) to manage the queue of tasks.
+*   **How they can be used in real life:** Celery is crucial for building responsive and scalable web applications by:
+    *   **Offloading Blocking Operations:** Preventing HTTP requests from being held up by time-consuming tasks.
+    *   **Improving User Experience:** Providing immediate feedback to users while complex operations run in the background.
+    *   **Handling Retries and Error Recovery:** Automatically retrying failed tasks and providing mechanisms for error handling.
+    *   **Scheduling Tasks:** Running periodic tasks (e.g., daily reports, data synchronization).
+*   **Example of real-life applications:** Any web application that sends notifications, processes data, generates reports, or performs any operation that doesn't need to be completed within the immediate HTTP request-response cycle. This includes e-commerce (order confirmations, shipping alerts), social media (notification delivery), and data processing pipelines.
+
 ## Conclusion
 
 This project successfully developed a robust backend for an e-commerce application using Django REST Framework, integrating key components of a modern High-Level Design (HLD). The implementation demonstrated how a modular approach, coupled with specialized external services, can address critical requirements for scalability, performance, and maintainability in a complex domain like e-commerce.
@@ -805,6 +817,7 @@ The development process yielded several significant insights and reinforced impo
 *   **Performance Optimization through Caching:** The integration of Redis for caching user cart data provided a tangible demonstration of how in-memory data stores can drastically reduce database load and improve API response times for read-heavy operations. The explicit cache invalidation strategy was key to maintaining data consistency.
 *   **Event-Driven Communication:** Leveraging Apache Kafka as a message broker showcased the power of asynchronous communication. By publishing events (e.g., user registered, cart item added, order created, payment processed), the system achieved greater decoupling between components, enhancing resilience and enabling real-time data processing and potential future integrations (e.g., a dedicated notification service).
 *   **Specialized Search Capabilities:** The integration of Elasticsearch provided a practical understanding of how dedicated search engines can deliver superior search performance and relevance compared to traditional database queries, especially for full-text search across product descriptions.
+*   **Asynchronous Task Processing (Celery):** The implementation of Celery for background task processing was a critical step in improving the responsiveness and scalability of the application. By offloading email and SMS sending, the main web processes are freed up, leading to faster API response times and better user experience.
 *   **Importance of Non-Functional Requirements:** Throughout the project, the focus on non-functional requirements like scalability, performance, and security guided design decisions, leading to a more resilient and production-ready system.
 *   **Managed Services in Cloud Environments:** The proposed AWS deployment architecture highlighted the benefits of using managed services (RDS, ElastiCache, MSK, OpenSearch Service, Elastic Beanstalk). These services abstract away much of the operational complexity, allowing developers to focus on application logic while benefiting from high availability, scalability, and security features provided by the cloud provider.
 

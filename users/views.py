@@ -56,6 +56,6 @@ class PasswordResetTriggerView(APIView):
             'protocol': 'http',
         })
         
-        # Use our custom email utility
-        send_single_email(mail_subject, message, [email])
+        # Use our custom email utility asynchronously
+        send_single_email.delay(mail_subject, message, [email])
         return Response({"detail": "Password reset email sent"}, status=status.HTTP_200_OK)
